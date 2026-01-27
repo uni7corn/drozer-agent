@@ -1,11 +1,11 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace 'com.WithSecure.dz'
+    namespace 'com.reversec.dz'
     compileSdkVersion 33
 
     defaultConfig {
-        applicationId "com.withsecure.dz"
+        applicationId "com.reversec.dz"
         minSdkVersion 17
         targetSdkVersion 33
         multiDexEnabled true

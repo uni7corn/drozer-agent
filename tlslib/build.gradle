@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace 'com.WithSecure.tlslib'
+    namespace 'com.reversec.tlslib'
     compileSdk 33
 
     defaultConfig {

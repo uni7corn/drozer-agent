@@ -14,7 +14,7 @@
         android:src="@drawable/drozer"
         android:contentDescription="@string/app_name" />
 
-    <com.WithSecure.dz.views.EndpointListView
+    <com.reversec.dz.views.EndpointListView
         android:id="@+id/endpoint_list_view"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -22,7 +22,7 @@
         android:layout_below="@id/drozer_graphic"
         android:layout_alignParentLeft="true" />
     
-    <com.WithSecure.dz.views.ServerListRowView
+    <com.reversec.dz.views.ServerListRowView
         android:id="@+id/server_list_row_view"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
