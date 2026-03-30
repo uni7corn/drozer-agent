@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace 'com.WithSecure.jsolar'
+    namespace 'com.reversec.jsolar'
     compileSdk 33
 
     defaultConfig {
@@ -22,6 +22,10 @@ android {
             jniDebuggable true
             minifyEnabled false
         }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
     externalNativeBuild {
         cmake {
