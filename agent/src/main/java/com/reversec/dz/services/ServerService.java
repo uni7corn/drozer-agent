@@ -1,5 +1,12 @@
 package com.reversec.dz.services;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.Locale;
 import java.util.Observable;
 import java.util.Observer;
@@ -189,20 +196,50 @@ public class ServerService extends ConnectorService {
 				.createNotificationChannel(ch);
 		}
 
+		startForeground(FGS_NOTIFICATION_ID, buildForegroundNotification("Server stopped"));
+	}
+
+	private Notification buildForegroundNotification(String contentText) {
 		PendingIntent pi = PendingIntent.getActivity(this, 0,
 			new Intent(this, MainActivity.class),
 			PendingIntent.FLAG_IMMUTABLE);
 
-		Notification n = new NotificationCompat.Builder(this, FGS_CHANNEL_ID)
+		return new NotificationCompat.Builder(this, FGS_CHANNEL_ID)
 			.setSmallIcon(R.drawable.ic_notification)
 			.setContentTitle("drozer Agent")
-			.setContentText("Server is running")
+			.setContentText(contentText)
 			.setContentIntent(pi)
 			.setOngoing(true)
 			.setPriority(NotificationCompat.PRIORITY_LOW)
 			.build();
+	}
 
-		startForeground(FGS_NOTIFICATION_ID, n);
+	private void updateForegroundNotification(String contentText) {
+		if (!BuildConfig.IS_PENTEST) return;
+		((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
+			.notify(FGS_NOTIFICATION_ID, buildForegroundNotification(contentText));
+	}
+
+	private String getLocalAddressesString(int port) {
+		List<String> addresses = new ArrayList<>();
+		addresses.add("127.0.0.1:" + port);
+		try {
+			Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+			while (interfaces.hasMoreElements()) {
+				NetworkInterface iface = interfaces.nextElement();
+				if (iface.isLoopback() || !iface.isUp()) continue;
+				Enumeration<InetAddress> addrs = iface.getInetAddresses();
+				while (addrs.hasMoreElements()) {
+					InetAddress addr = addrs.nextElement();
+					if (addr instanceof Inet4Address) {
+						addresses.add(addr.getHostAddress() + ":" + port);
+					}
+				}
+			}
+		} catch (SocketException e) {
+			// ignore
+		}
+		return String.join(", ", addresses);
 	}
 	
 	
@@ -253,25 +290,28 @@ public class ServerService extends ConnectorService {
 	public void startServer() {
 		if(this.server == null) {
 			(new ServerSettings()).load(getBaseContext(), this.server_parameters);
-			
+
 			this.server_parameters.enabled = true;
 			this.server = new Server(this.server_parameters, Agent.getInstance().getDeviceInfo());
 			this.server.setLogger(this.server_parameters.getLogger());
 			this.server_parameters.getLogger().addOnLogMessageListener(this);
-			
+
 			this.server.start();
-			
-			Toast.makeText(this, String.format(Locale.ENGLISH, this.getString(R.string.embedded_server_started), this.server_parameters.getPort()), Toast.LENGTH_SHORT).show();
+
+			int port = this.server_parameters.getPort();
+			updateForegroundNotification("Listening on " + getLocalAddressesString(port));
+			Toast.makeText(this, String.format(Locale.ENGLISH, this.getString(R.string.embedded_server_started), port), Toast.LENGTH_SHORT).show();
 		}
 	}
-	
+
 	public void stopServer() {
 		if(this.server != null) {
 			this.server_parameters.enabled = false;
 			this.server.stopConnector();
-			
+
+			if (BuildConfig.IS_PENTEST) stopForeground(true);
 			Toast.makeText(this, String.format(Locale.ENGLISH, this.getString(R.string.embedded_server_stopped), this.server_parameters.getPort()), Toast.LENGTH_SHORT).show();
-			
+
 			this.server = null;
 		}
 	}
