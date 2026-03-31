@@ -64,6 +64,11 @@ public class Server extends Link{
 
     @Override
     public void run() {
+        // Guard against the race where stopConnector() was called before run() started.
+        if (this.stopRequested) {
+            this.parameters.setStatus(Connector.Status.OFFLINE);
+            return;
+        }
         this.running = true;
 
         this.log(LogMessage.INFO, "Starting Server..." );
@@ -110,8 +115,10 @@ public class Server extends Link{
                 this.stopConnector();
             }
             catch(IOException e) {
+                // If running was set to false by stopConnector(), the socket close caused
+                // this exception intentionally — exit cleanly without resetting.
+                if (!this.running) break;
                 this.log(LogMessage.ERROR, "IO Error. Resetting connection.");
-                System.out.println("error: " + e.toString());
                 this.resetConnection();
             }
             catch(KeyManagementException e) {

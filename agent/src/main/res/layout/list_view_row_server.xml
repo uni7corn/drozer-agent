@@ -18,12 +18,14 @@
         android:textAppearance="?android:attr/textAppearanceMedium" />
     <TextView
         android:id="@+id/adb_server_port"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentLeft="true"
         android:layout_below="@+id/adb_server_name"
+        android:layout_toLeftOf="@+id/adb_server_toggle"
         android:text="@string/embedded_server_port"
-        android:textAppearance="?android:attr/textAppearanceSmall" />
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        android:maxLines="4" />
 
     <com.reversec.dz.views.ConnectorStatusIndicator
         android:id="@+id/adb_server_status_indicator"

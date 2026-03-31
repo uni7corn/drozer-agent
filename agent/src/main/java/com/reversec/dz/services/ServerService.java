@@ -20,8 +20,11 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.RemoteException;
+import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 import androidx.core.app.NotificationCompat;
@@ -36,8 +39,12 @@ import com.reversec.jsolar.api.links.Server;
 
 public class ServerService extends ConnectorService {
 
-	private static final String FGS_CHANNEL_ID    = "drozer_server_fgs";
+	private static final String FGS_CHANNEL_ID      = "drozer_server_fgs";
 	private static final int    FGS_NOTIFICATION_ID = 1001;
+	private static final long   FGS_UPDATE_INTERVAL = 15_000;
+
+	private Handler notificationUpdateHandler;
+	private Runnable notificationUpdateRunnable;
 
 	public static final int MSG_GET_DETAILED_SERVER_STATUS = 21;
 	public static final int MSG_GET_SERVER_STATUS = 22;
@@ -173,10 +180,6 @@ public class ServerService extends ConnectorService {
 	public int onStartCommand(Intent intent, int flags, int startId){
 		int ret_val = super.onStartCommand(intent, flags, startId);
 
-		// Must call startForeground() promptly when started via startForegroundService().
-		// ensureForeground() is a no-op for the store flavor (BuildConfig.IS_PENTEST == false).
-		ensureForeground();
-
 		if(intent != null && intent.getCategories() != null && intent.getCategories().contains("com.reversec.dz.START_EMBEDDED")) {
 			Agent.getInstance().setContext(this.getApplicationContext());
 			this.startServer();
@@ -239,7 +242,7 @@ public class ServerService extends ConnectorService {
 		} catch (SocketException e) {
 			// ignore
 		}
-		return String.join(", ", addresses);
+		return TextUtils.join(", ", addresses);
 	}
 	
 	
@@ -247,9 +250,20 @@ public class ServerService extends ConnectorService {
 	@Override
 	public void onCreate() {
 		super.onCreate();
-		
+
 		ServerService.running = true;
-		
+
+		notificationUpdateHandler = new Handler(Looper.getMainLooper());
+		notificationUpdateRunnable = new Runnable() {
+			@Override public void run() {
+				if (server != null && BuildConfig.IS_PENTEST) {
+					updateForegroundNotification("Listening on "
+						+ getLocalAddressesString(server_parameters.getPort()));
+					notificationUpdateHandler.postDelayed(this, FGS_UPDATE_INTERVAL);
+				}
+			}
+		};
+
 		this.server_parameters.addObserver(new Observer() {
 
 			@Override
@@ -274,21 +288,25 @@ public class ServerService extends ConnectorService {
 	}
 
 	public static void startAndBindToService(Context context, ServiceConnection serviceConnection) {
-		if (!ServerService.running) {
-			Intent startIntent = new Intent(context, ServerService.class);
-			if (BuildConfig.IS_PENTEST && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-				context.startForegroundService(startIntent);
-			} else {
-				context.startService(startIntent);
-			}
-		}
+		if (!ServerService.running)
+			context.startService(new Intent(context, ServerService.class));
 
-		Intent intent = new Intent(context, ServerService.class);
-		context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+		context.bindService(new Intent(context, ServerService.class), serviceConnection, Context.BIND_AUTO_CREATE);
 	}
 	
 	public void startServer() {
 		if(this.server == null) {
+			// Promote to foreground service before doing any work so the OS knows
+			// this service is user-visible. Must happen before the 5-second window
+			// expires when started via startForegroundService() (e.g. from BootReceiver).
+			ensureForeground();
+
+			// Persist the intent to keep the server running so that onServiceConnected()
+			// can restart it after the app is killed and relaunched, regardless of which
+			// code path started the server (UI toggle, BootReceiver, etc.).
+			getSharedPreferences(getPackageName() + "_preferences", Context.MODE_MULTI_PROCESS)
+					.edit().putBoolean("localServerEnabled", true).apply();
+
 			(new ServerSettings()).load(getBaseContext(), this.server_parameters);
 
 			this.server_parameters.enabled = true;
@@ -300,19 +318,25 @@ public class ServerService extends ConnectorService {
 
 			int port = this.server_parameters.getPort();
 			updateForegroundNotification("Listening on " + getLocalAddressesString(port));
+			notificationUpdateHandler.postDelayed(notificationUpdateRunnable, FGS_UPDATE_INTERVAL);
 			Toast.makeText(this, String.format(Locale.ENGLISH, this.getString(R.string.embedded_server_started), port), Toast.LENGTH_SHORT).show();
 		}
 	}
 
 	public void stopServer() {
 		if(this.server != null) {
+			// Null first to prevent re-entry if stopConnector() triggers any callbacks.
+			Server serverToStop = this.server;
+			this.server = null;
+
+			notificationUpdateHandler.removeCallbacks(notificationUpdateRunnable);
 			this.server_parameters.enabled = false;
-			this.server.stopConnector();
+			getSharedPreferences(getPackageName() + "_preferences", Context.MODE_MULTI_PROCESS)
+					.edit().putBoolean("localServerEnabled", false).apply();
+			serverToStop.stopConnector();
 
 			if (BuildConfig.IS_PENTEST) stopForeground(true);
 			Toast.makeText(this, String.format(Locale.ENGLISH, this.getString(R.string.embedded_server_stopped), this.server_parameters.getPort()), Toast.LENGTH_SHORT).show();
-
-			this.server = null;
 		}
 	}
 

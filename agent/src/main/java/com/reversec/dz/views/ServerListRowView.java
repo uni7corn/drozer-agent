@@ -1,9 +1,17 @@
 package com.reversec.dz.views;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
 
 import android.content.Context;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.CompoundButton.OnCheckedChangeListener;
@@ -67,7 +75,7 @@ public class ServerListRowView extends LinearLayout implements Observer, OnCheck
 		this.setting_server = true;
 		this.server_parameters = server_parameters;
 		
-		this.adb_server_port_field.setText(Integer.valueOf(this.server_parameters.getPort()).toString());
+		this.adb_server_port_field.setText(getLocalAddressesString(this.server_parameters.getPort()));
 		this.adb_server_status_indicator.setConnector(this.server_parameters);
 		this.adb_server_toggle_button.setChecked(this.server_parameters.isEnabled());
 		this.setting_server = false;
@@ -85,6 +93,27 @@ public class ServerListRowView extends LinearLayout implements Observer, OnCheck
 	
 	public void setServerViewListener(OnServerViewListener listener) {
 		this.server_view_listener = listener;
+	}
+
+	private static String getLocalAddressesString(int port) {
+		List<String> addresses = new ArrayList<>();
+		addresses.add("127.0.0.1:" + port);
+		try {
+			Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+			while (interfaces.hasMoreElements()) {
+				NetworkInterface iface = interfaces.nextElement();
+				if (iface.isLoopback() || !iface.isUp()) continue;
+				Enumeration<InetAddress> addrs = iface.getInetAddresses();
+				while (addrs.hasMoreElements()) {
+					InetAddress addr = addrs.nextElement();
+					if (addr instanceof Inet4Address)
+						addresses.add(addr.getHostAddress() + ":" + port);
+				}
+			}
+		} catch (SocketException e) {
+			// ignore
+		}
+		return TextUtils.join(", ", addresses);
 	}
 
 	@Override

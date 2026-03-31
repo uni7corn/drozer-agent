@@ -43,7 +43,13 @@ public class IncomingReplyHandler extends Handler {
 			break;
 
 		case ServerService.MSG_GET_SERVER_STATUS:
-			agent.getServerParameters().setStatus(Connector.Status.values()[data.getInt("server")]);
+			Connector.Status newStatus = Connector.Status.values()[data.getInt("server")];
+			// Sync the enabled flag so the toggle button reflects the actual server
+			// state even when the server was started externally (e.g. via BootReceiver).
+			agent.getServerParameters().enabled = (newStatus == Connector.Status.ONLINE
+					|| newStatus == Connector.Status.ACTIVE
+					|| newStatus == Connector.Status.CONNECTING);
+			agent.getServerParameters().setStatus(newStatus);
 			break;
 
 		case ConnectorService.MSG_LOG_MESSAGE:
