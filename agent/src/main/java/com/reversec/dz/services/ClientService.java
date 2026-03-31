@@ -1,10 +1,17 @@
 package com.reversec.dz.services;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
 import android.os.RemoteException;
@@ -12,20 +19,27 @@ import android.util.Log;
 import android.util.SparseArray;
 import android.widget.Toast;
 
+import androidx.core.app.NotificationCompat;
+
 import com.reversec.dz.Agent;
+import com.reversec.dz.BuildConfig;
 import com.reversec.dz.R;
+import com.reversec.dz.activities.MainActivity;
 import com.reversec.dz.models.EndpointManager;
 import com.reversec.jsolar.api.connectors.Endpoint;
 import com.reversec.jsolar.api.links.Client;
 
 public class ClientService extends ConnectorService {
-	
+
+	private static final String FGS_CHANNEL_ID      = "drozer_client_fgs";
+	private static final int    FGS_NOTIFICATION_ID = 1002;
+
 	public static final int MSG_GET_DETAILED_ENDPOINT_STATUS = 11;
 	public static final int MSG_GET_ENDPOINTS_STATUS = 12;
 	public static final int MSG_GET_SSL_FINGERPRINT = 13;
 	public static final int MSG_START_ENDPOINT = 14;
 	public static final int MSG_STOP_ENDPOINT = 15;
-	
+
 	private SparseArray<Client> clients = new SparseArray<Client>();
 	private final EndpointManager endpoint_manager = new EndpointManager(this);
 	
@@ -218,6 +232,64 @@ public class ClientService extends ConnectorService {
 	@Override
 	public void onDestroy() {
 		ClientService.running = false;
+		if (BuildConfig.IS_PENTEST) stopForeground(true);
+	}
+
+	// -------------------------------------------------------------------------
+	// Foreground service helpers (pentest flavor only)
+	// -------------------------------------------------------------------------
+
+	private Notification buildForegroundNotification(String contentText) {
+		PendingIntent pi = PendingIntent.getActivity(this, 0,
+			new Intent(this, MainActivity.class),
+			PendingIntent.FLAG_IMMUTABLE);
+
+		return new NotificationCompat.Builder(this, FGS_CHANNEL_ID)
+			.setSmallIcon(R.drawable.ic_notification)
+			.setContentTitle("drozer Agent")
+			.setContentText(contentText)
+			.setContentIntent(pi)
+			.setOngoing(true)
+			.setPriority(NotificationCompat.PRIORITY_LOW)
+			.build();
+	}
+
+	/** Promote to foreground and show which hosts are currently connected. */
+	private void updateForegroundNotification() {
+		if (!BuildConfig.IS_PENTEST) return;
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+			NotificationChannel ch = new NotificationChannel(
+				FGS_CHANNEL_ID, "drozer Endpoints", NotificationManager.IMPORTANCE_LOW);
+			ch.setDescription("Keeps outgoing drozer connections alive");
+			((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
+				.createNotificationChannel(ch);
+		}
+
+		List<String> active = new ArrayList<>();
+		for (Endpoint e : this.endpoint_manager.all()) {
+			if (e.isEnabled()) active.add(e.toConnectionString());
+		}
+
+		String text = active.isEmpty()
+			? "No active connections"
+			: "Connected to: " + android.text.TextUtils.join(", ", active);
+
+		startForeground(FGS_NOTIFICATION_ID, buildForegroundNotification(text));
+	}
+
+	/** Drop foreground status when no endpoints remain active. */
+	private void updateForegroundState() {
+		if (!BuildConfig.IS_PENTEST) return;
+		boolean anyActive = false;
+		for (Endpoint e : this.endpoint_manager.all()) {
+			if (e.isEnabled()) { anyActive = true; break; }
+		}
+		if (anyActive) {
+			updateForegroundNotification();
+		} else {
+			stopForeground(true);
+		}
 	}
 	
 	public static void startAndBindToService(Context context, ServiceConnection serviceConnection) {
@@ -231,34 +303,38 @@ public class ClientService extends ConnectorService {
 	public void startEndpoint(int id) {
 		if(this.clients.get(id) == null) {
 			Endpoint endpoint = this.endpoint_manager.get(id, true);
-			
+
 			Agent.getInstance().getEndpointManager().setActive(endpoint.getId(), true);
-			
+
 			Client client = new Client(endpoint, Agent.getInstance().getDeviceInfo());
 			client.setLogger(endpoint.getLogger());
 			endpoint.getLogger().addOnLogMessageListener(this);
-			
+
 			this.clients.put(id, client);
-			
+
 			endpoint.enabled = true;
 			client.start();
-			
+
+			updateForegroundNotification();
+
 			Toast.makeText(this, String.format(Locale.ENGLISH, this.getString(R.string.endpoint_started), endpoint.toConnectionString()), Toast.LENGTH_SHORT).show();
 		}
 	}
-	
+
 	public void stopEndpoint(int id) {
 		Endpoint endpoint = this.endpoint_manager.get(id);
 		Client client = this.clients.get(id);
-		
+
 		Agent.getInstance().getEndpointManager().setActive(endpoint.getId(), false);
-		
+
 		if(client != null) {
 			client.stopConnector();
 			endpoint.enabled = false;
-			
+
 			this.clients.remove(id);
-			
+
+			updateForegroundState();
+
 			Toast.makeText(this, String.format(Locale.ENGLISH, this.getString(R.string.endpoint_stopped), endpoint.toConnectionString()), Toast.LENGTH_SHORT).show();
 		}
 	}
