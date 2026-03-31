@@ -51,17 +51,24 @@ public class ServerServiceConnection implements ServiceConnection {
 	@Override
 	public void onServiceConnected(ComponentName className, IBinder service) {
 		this.service = new Messenger(service);
-		this.bound = true;		
+		this.bound = true;
 		if(Agent.getInstance().getSettings().getBoolean("localServerEnabled", false) && Agent.getInstance().getSettings().getBoolean("restore_after_crash", true)){
 			try {
 				ServerServiceConnection ssc = Agent.getInstance().getServerService();
 				Server server = Agent.getInstance().getServerParameters();
 				Messenger messenger = Agent.getInstance().getMessenger();
-				
+
 				ssc.startServer(server, messenger);
 			} catch (RemoteException e) {
 				e.printStackTrace();
 			}
+		}
+		// Always sync UI with actual service state on bind, regardless of how the
+		// server was started (e.g. auto-started at boot in the pentest flavor).
+		try {
+			this.getServerStatus(Agent.getInstance().getMessenger());
+		} catch (RemoteException e) {
+			e.printStackTrace();
 		}
 	}
 	

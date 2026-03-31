@@ -1,23 +1,36 @@
 package com.reversec.dz.activities;
 
 import com.reversec.dz.Agent;
+import com.reversec.dz.BuildConfig;
 import com.reversec.dz.EndpointAdapter;
 import com.reversec.dz.R;
 import com.reversec.dz.views.EndpointListView;
 import com.reversec.dz.views.ServerListRowView;
 import com.reversec.jsolar.api.connectors.Endpoint;
 
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PermissionInfo;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.app.Activity;
 import android.content.Intent;
+import android.provider.Settings;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Toast;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends Activity {
-	
+
+	private static final int REQUEST_CODE_PENTEST_PERMISSIONS = 42;
+
 	private EndpointListView endpoint_list_view = null;
 	private ServerListRowView server_list_row_view = null;
 	
@@ -70,7 +83,7 @@ public class MainActivity extends Activity {
         	
         });
         this.server_list_row_view.setServerViewListener(new ServerListRowView.OnServerViewListener() {
-			
+
 			@Override
 			public void onToggle(boolean toggle) {
 				if(toggle)
@@ -78,8 +91,64 @@ public class MainActivity extends Activity {
 				else
 					MainActivity.this.stopServer();
 			}
-			
+
 		});
+
+        requestPentestPermissionsIfNeeded();
+    }
+
+    /**
+     * Dynamically requests all dangerous permissions declared in the manifest that have not yet
+     * been granted. Adding a new dangerous permission to the pentest manifest is sufficient —
+     * no Java change is required. SYSTEM_ALERT_WINDOW is handled separately because it cannot
+     * go through requestPermissions() and requires a Settings page redirect instead.
+     * This method is a no-op for the store flavor (BuildConfig.IS_PENTEST == false).
+     */
+    private void requestPentestPermissionsIfNeeded() {
+        if (!BuildConfig.IS_PENTEST) return;
+
+        List<String> toRequest = new ArrayList<>();
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(
+                getPackageName(), PackageManager.GET_PERMISSIONS);
+            if (info.requestedPermissions != null) {
+                for (String perm : info.requestedPermissions) {
+                    try {
+                        PermissionInfo pi = getPackageManager().getPermissionInfo(perm, 0);
+                        int baseProtection = pi.protectionLevel & PermissionInfo.PROTECTION_MASK_BASE;
+                        if (baseProtection == PermissionInfo.PROTECTION_DANGEROUS
+                                && ContextCompat.checkSelfPermission(this, perm)
+                                   != PackageManager.PERMISSION_GRANTED) {
+                            toRequest.add(perm);
+                        }
+                    } catch (PackageManager.NameNotFoundException ignored) {
+                        // Unknown or system-internal permission — skip
+                    }
+                }
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            // Should never happen for our own package
+        }
+
+        if (!toRequest.isEmpty()) {
+            ActivityCompat.requestPermissions(this,
+                toRequest.toArray(new String[0]),
+                REQUEST_CODE_PENTEST_PERMISSIONS);
+        }
+
+        // SYSTEM_ALERT_WINDOW grants background activity launch exemption on Android 10+.
+        // It cannot go through requestPermissions() — redirect to system Settings.
+        if (!Settings.canDrawOverlays(this)) {
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + getPackageName())));
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+            String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        // No action needed; components operate regardless of individual grant outcomes
     }
     
     @Override

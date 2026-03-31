@@ -4,23 +4,34 @@ import java.util.Locale;
 import java.util.Observable;
 import java.util.Observer;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Message;
 import android.os.RemoteException;
 import android.util.Log;
 import android.widget.Toast;
+import androidx.core.app.NotificationCompat;
 
 import com.reversec.dz.Agent;
+import com.reversec.dz.BuildConfig;
 import com.reversec.dz.R;
+import com.reversec.dz.activities.MainActivity;
 import com.reversec.dz.models.ServerSettings;
 import com.reversec.jsolar.api.connectors.Connector;
 import com.reversec.jsolar.api.links.Server;
 
 public class ServerService extends ConnectorService {
-	
+
+	private static final String FGS_CHANNEL_ID    = "drozer_server_fgs";
+	private static final int    FGS_NOTIFICATION_ID = 1001;
+
 	public static final int MSG_GET_DETAILED_SERVER_STATUS = 21;
 	public static final int MSG_GET_SERVER_STATUS = 22;
 	public static final int MSG_GET_SSL_FINGERPRINT = 23;
@@ -154,13 +165,44 @@ public class ServerService extends ConnectorService {
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId){
 		int ret_val = super.onStartCommand(intent, flags, startId);
-		
+
+		// Must call startForeground() promptly when started via startForegroundService().
+		// ensureForeground() is a no-op for the store flavor (BuildConfig.IS_PENTEST == false).
+		ensureForeground();
+
 		if(intent != null && intent.getCategories() != null && intent.getCategories().contains("com.reversec.dz.START_EMBEDDED")) {
 			Agent.getInstance().setContext(this.getApplicationContext());
 			this.startServer();
 		}
-		
+
 		return ret_val;
+	}
+
+	private void ensureForeground() {
+		if (!BuildConfig.IS_PENTEST) return;
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+			NotificationChannel ch = new NotificationChannel(
+				FGS_CHANNEL_ID, "drozer Server", NotificationManager.IMPORTANCE_LOW);
+			ch.setDescription("Keeps the drozer server running in the background");
+			((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
+				.createNotificationChannel(ch);
+		}
+
+		PendingIntent pi = PendingIntent.getActivity(this, 0,
+			new Intent(this, MainActivity.class),
+			PendingIntent.FLAG_IMMUTABLE);
+
+		Notification n = new NotificationCompat.Builder(this, FGS_CHANNEL_ID)
+			.setSmallIcon(R.drawable.ic_notification)
+			.setContentTitle("drozer Agent")
+			.setContentText("Server is running")
+			.setContentIntent(pi)
+			.setOngoing(true)
+			.setPriority(NotificationCompat.PRIORITY_LOW)
+			.build();
+
+		startForeground(FGS_NOTIFICATION_ID, n);
 	}
 	
 	
@@ -189,14 +231,23 @@ public class ServerService extends ConnectorService {
 	@Override
 	public void onDestroy() {
 		ServerService.running = false;
+		if (BuildConfig.IS_PENTEST) {
+			stopForeground(true);
+		}
 	}
-	
+
 	public static void startAndBindToService(Context context, ServiceConnection serviceConnection) {
-		if(!ServerService.running)
-			context.startService(new Intent(context, ServerService.class));
+		if (!ServerService.running) {
+			Intent startIntent = new Intent(context, ServerService.class);
+			if (BuildConfig.IS_PENTEST && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+				context.startForegroundService(startIntent);
+			} else {
+				context.startService(startIntent);
+			}
+		}
 
 		Intent intent = new Intent(context, ServerService.class);
-    	context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
+		context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
 	}
 	
 	public void startServer() {

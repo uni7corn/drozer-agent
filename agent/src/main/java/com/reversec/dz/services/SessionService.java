@@ -11,7 +11,6 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
-import android.widget.RemoteViews;
 
 import com.reversec.androidlib.android.app.NotifyingService;
 import com.reversec.dz.R;
@@ -80,12 +79,6 @@ public class SessionService extends NotifyingService {
 		SessionService.running = false;
 	}
 
-	@Override
-	protected void onCreateNotification(RemoteViews view) {
-		view.setImageViewResource(R.id.cs_notification_icon, R.drawable.ic_notification);
-		view.setTextViewText(R.id.cs_notification_ticker, getString(R.string.session_connected));		
-	}
-	
 	public void remove(String session_id) {
 		this.sessions.remove(session_id);
 	}
@@ -99,8 +92,14 @@ public class SessionService extends NotifyingService {
 	}
 	
 	private void updateNotification() {
-		if(!this.sessions.isEmpty())
-			this.showNotification(this.getString(R.string.app_name), R.layout.notification_session, R.drawable.ic_notification, PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), 0));
+		if (!this.sessions.isEmpty())
+			this.showNotification(
+				this.getString(R.string.app_name),
+				R.layout.notification_session,
+				R.drawable.ic_notification,
+				PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
+					PendingIntent.FLAG_IMMUTABLE),
+				this.getString(R.string.session_connected));
 		else
 			this.hideNotification(this.getString(R.string.app_name), R.layout.notification_session);
 	}
