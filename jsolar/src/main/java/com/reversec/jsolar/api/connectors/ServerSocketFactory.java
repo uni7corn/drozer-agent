@@ -9,7 +9,9 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
@@ -40,6 +42,19 @@ public class ServerSocketFactory {
             context.init(keyManagers, null, null);
 
             SSLServerSocket ss = (SSLServerSocket) context.getServerSocketFactory().createServerSocket(server.getPort());
+
+            // Android API 16-19 supports TLSv1.2 but doesn't enable it by default.
+            // Explicitly enable all supported TLS protocols (excluding SSLv3) so the
+            // Python client (which requires TLSv1.2+) can connect on older devices.
+            String[] supported = ss.getSupportedProtocols();
+            List<String> protocols = new ArrayList<>();
+            for (String p : supported) {
+                if (!p.contains("SSL")) {
+                    protocols.add(p);
+                }
+            }
+            ss.setEnabledProtocols(protocols.toArray(new String[0]));
+
             Log.i(TAG, "Enabled protocols: " + Arrays.toString(ss.getEnabledProtocols()));
             Log.i(TAG, "Enabled cipher suites: " + Arrays.toString(ss.getEnabledCipherSuites()));
             return ss;
