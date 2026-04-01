@@ -27,6 +27,8 @@ import androidx.core.content.ContextCompat;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.reversec.dz.util.PentestPasswordManager;
+
 public class MainActivity extends Activity {
 
 	private static final int REQUEST_CODE_PENTEST_PERMISSIONS = 42;
@@ -50,7 +52,8 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         
         Agent.getInstance().setContext(this.getApplicationContext());
-        
+        PentestPasswordManager.ensurePasswordGenerated(this.getApplicationContext());
+
         setContentView(R.layout.activity_main);
         
         this.endpoint_list_view = (EndpointListView)this.findViewById(R.id.endpoint_list_view);

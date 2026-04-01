@@ -17,6 +17,7 @@ android {
             applicationId "com.reversec.dz"
             targetSdkVersion 33
             buildConfigField "boolean", "IS_PENTEST", "false"
+            buildConfigField "boolean", "AUTO_PASSWORD", "false"
             resValue "string", "app_name", "drozer Agent"
         }
         pentest {
@@ -24,6 +25,7 @@ android {
             applicationId "com.reversec.dz.pentest"
             targetSdkVersion 34
             buildConfigField "boolean", "IS_PENTEST", "true"
+            buildConfigField "boolean", "AUTO_PASSWORD", "true"
             resValue "string", "app_name", "drozer Agent (Pentest)"
         }
     }

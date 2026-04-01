@@ -34,6 +34,7 @@ import com.reversec.dz.BuildConfig;
 import com.reversec.dz.R;
 import com.reversec.dz.activities.MainActivity;
 import com.reversec.dz.models.ServerSettings;
+import com.reversec.dz.util.PentestPasswordManager;
 import com.reversec.jsolar.api.connectors.Connector;
 import com.reversec.jsolar.api.links.Server;
 
@@ -182,6 +183,7 @@ public class ServerService extends ConnectorService {
 
 		if(intent != null && intent.getCategories() != null && intent.getCategories().contains("com.reversec.dz.START_EMBEDDED")) {
 			Agent.getInstance().setContext(this.getApplicationContext());
+			PentestPasswordManager.ensurePasswordGenerated(this.getApplicationContext());
 			this.startServer();
 		}
 
@@ -211,6 +213,7 @@ public class ServerService extends ConnectorService {
 			.setSmallIcon(R.drawable.ic_notification)
 			.setContentTitle("drozer Agent")
 			.setContentText(contentText)
+			.setStyle(new NotificationCompat.BigTextStyle().bigText(contentText))
 			.setContentIntent(pi)
 			.setOngoing(true)
 			.setPriority(NotificationCompat.PRIORITY_LOW)
@@ -221,6 +224,14 @@ public class ServerService extends ConnectorService {
 		if (!BuildConfig.IS_PENTEST) return;
 		((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
 			.notify(FGS_NOTIFICATION_ID, buildForegroundNotification(contentText));
+	}
+
+	private String buildNotificationText() {
+		String text = "Listening on " + getLocalAddressesString(server_parameters.getPort());
+		if (BuildConfig.IS_PENTEST && server_parameters.hasPassword()) {
+			text += "\nPassword: " + server_parameters.getPassword();
+		}
+		return text;
 	}
 
 	private String getLocalAddressesString(int port) {
@@ -257,8 +268,7 @@ public class ServerService extends ConnectorService {
 		notificationUpdateRunnable = new Runnable() {
 			@Override public void run() {
 				if (server != null && BuildConfig.IS_PENTEST) {
-					updateForegroundNotification("Listening on "
-						+ getLocalAddressesString(server_parameters.getPort()));
+					updateForegroundNotification(buildNotificationText());
 					notificationUpdateHandler.postDelayed(this, FGS_UPDATE_INTERVAL);
 				}
 			}
@@ -316,10 +326,9 @@ public class ServerService extends ConnectorService {
 
 			this.server.start();
 
-			int port = this.server_parameters.getPort();
-			updateForegroundNotification("Listening on " + getLocalAddressesString(port));
+			updateForegroundNotification(buildNotificationText());
 			notificationUpdateHandler.postDelayed(notificationUpdateRunnable, FGS_UPDATE_INTERVAL);
-			Toast.makeText(this, String.format(Locale.ENGLISH, this.getString(R.string.embedded_server_started), port), Toast.LENGTH_SHORT).show();
+			Toast.makeText(this, String.format(Locale.ENGLISH, this.getString(R.string.embedded_server_started), this.server_parameters.getPort()), Toast.LENGTH_SHORT).show();
 		}
 	}
 
