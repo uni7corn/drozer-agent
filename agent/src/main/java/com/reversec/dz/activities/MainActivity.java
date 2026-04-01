@@ -141,7 +141,8 @@ public class MainActivity extends Activity {
 
         // SYSTEM_ALERT_WINDOW grants background activity launch exemption on Android 10+.
         // It cannot go through requestPermissions() — redirect to system Settings.
-        if (!Settings.canDrawOverlays(this)) {
+        // canDrawOverlays() requires API 23+; pre-M grants overlay at install time.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:" + getPackageName())));
         }
