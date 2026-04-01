@@ -18,7 +18,6 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 
 import javax.net.ssl.SSLHandshakeException;
-import javax.net.ssl.SSLServerSocket;
 
 public class Server extends Link{
 
