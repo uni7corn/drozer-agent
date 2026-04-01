@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import com.reversec.dz.Agent;
 import com.reversec.dz.R;
 
 import java.io.BufferedReader;
@@ -90,11 +91,14 @@ public class CertificateManager {
     }
 
     private static KeyManager[] getKeyManagersFromBks(Context context) throws Exception {
-        File bksFile = new File(context.getFilesDir(), "drozer.bks");
+        // The app ships agent.bks (see Agent.DEFAULT_KEYSTORE), copied to filesDir on startup.
+        File bksFile = new File(context.getFilesDir(), Agent.DEFAULT_KEYSTORE);
         if (!bksFile.exists()) return null;
 
         KeyStore ks = KeyStore.getInstance("BKS");
-        ks.load(new FileInputStream(bksFile), "drozer".toCharArray());
+        try (FileInputStream fis = new FileInputStream(bksFile)) {
+            ks.load(fis, "drozer".toCharArray());
+        }
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         kmf.init(ks, "drozer".toCharArray());
         return kmf.getKeyManagers();
