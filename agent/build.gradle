@@ -18,6 +18,7 @@ android {
             targetSdkVersion 33
             buildConfigField "boolean", "IS_PENTEST", "false"
             buildConfigField "boolean", "AUTO_PASSWORD", "false"
+            buildConfigField "boolean", "AUTO_SSL", "true"
             resValue "string", "app_name", "drozer Agent"
         }
         pentest {
@@ -26,6 +27,7 @@ android {
             targetSdkVersion 34
             buildConfigField "boolean", "IS_PENTEST", "true"
             buildConfigField "boolean", "AUTO_PASSWORD", "true"
+            buildConfigField "boolean", "AUTO_SSL", "true"
             resValue "string", "app_name", "drozer Agent (Pentest)"
         }
     }

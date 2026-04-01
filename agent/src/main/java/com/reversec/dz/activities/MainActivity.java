@@ -52,7 +52,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         
         Agent.getInstance().setContext(this.getApplicationContext());
-        PentestPasswordManager.ensurePasswordGenerated(this.getApplicationContext());
+        PentestPasswordManager.ensureSecurityDefaults(this.getApplicationContext());
 
         setContentView(R.layout.activity_main);
         

@@ -1,5 +1,7 @@
 package com.reversec.jsolar.api.connectors;
 
+import android.util.Log;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.security.KeyManagementException;
@@ -7,11 +9,16 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.Arrays;
 
+import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 
 public class ServerSocketFactory {
+
+    private static final String TAG = "ServerSocketFactory";
+
     public ServerSocket createSocket(Server server) throws CertificateException, IOException, KeyManagementException, KeyStoreException, UnrecoverableKeyException {
         if (server.isSSL())
             return this.createSSLSocket(server);
@@ -21,10 +28,21 @@ public class ServerSocketFactory {
 
     public SSLServerSocket createSSLSocket(Server server) throws CertificateException, IOException, KeyManagementException, KeyStoreException, UnrecoverableKeyException {
         try {
-            SSLContext context = SSLContext.getInstance("TLS");
-            context.init(server.getKeyManagers(), null, null);
+            KeyManager[] keyManagers = server.getKeyManagers();
+            Log.i(TAG, "KeyManagers: " + (keyManagers != null ? keyManagers.length + " entries" : "null"));
+            if (keyManagers != null) {
+                for (int i = 0; i < keyManagers.length; i++) {
+                    Log.i(TAG, "  KeyManager[" + i + "]: " + keyManagers[i].getClass().getName());
+                }
+            }
 
-            return (SSLServerSocket) context.getServerSocketFactory().createServerSocket(server.getPort());
+            SSLContext context = SSLContext.getInstance("TLS");
+            context.init(keyManagers, null, null);
+
+            SSLServerSocket ss = (SSLServerSocket) context.getServerSocketFactory().createServerSocket(server.getPort());
+            Log.i(TAG, "Enabled protocols: " + Arrays.toString(ss.getEnabledProtocols()));
+            Log.i(TAG, "Enabled cipher suites: " + Arrays.toString(ss.getEnabledCipherSuites()));
+            return ss;
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("no such algorithm TLS");
         }

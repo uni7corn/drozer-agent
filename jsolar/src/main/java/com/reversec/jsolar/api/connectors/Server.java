@@ -57,9 +57,14 @@ public class Server extends Connector{
 
             KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
             keyManagerFactory.init(keyStore, this.keyPassword);
+            this.keyManagers = keyManagerFactory.getKeyManagers();
         }
 
         return this.keyManagers;
+    }
+
+    public void setKeyManagers(KeyManager[] keyManagers) {
+        this.keyManagers = keyManagers;
     }
 
     public String getPassword() {

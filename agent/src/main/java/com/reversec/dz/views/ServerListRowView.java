@@ -22,6 +22,7 @@ import android.widget.ToggleButton;
 
 import com.reversec.dz.BuildConfig;
 import com.reversec.dz.R;
+import com.reversec.dz.util.CertificateManager;
 import com.reversec.jsolar.api.connectors.Server;
 import com.reversec.jsolar.api.connectors.Server.OnChangeListener;
 
@@ -79,6 +80,12 @@ public class ServerListRowView extends LinearLayout implements Observer, OnCheck
 		String displayText = getLocalAddressesString(this.server_parameters.getPort());
 		if (BuildConfig.IS_PENTEST && this.server_parameters.hasPassword()) {
 			displayText += "\nPassword: " + this.server_parameters.getPassword();
+		}
+		if (this.server_parameters.isSSL()) {
+			String phrase = CertificateManager.getSecurityPhrase(getContext());
+			if (phrase != null) {
+				displayText += "\nTLS: " + phrase;
+			}
 		}
 		this.adb_server_port_field.setText(displayText);
 		this.adb_server_status_indicator.setConnector(this.server_parameters);
