@@ -7,6 +7,8 @@ import com.reversec.jsolar.api.transport.SocketTransport;
 import com.reversec.jsolar.connection.SecureConnection;
 import com.reversec.jsolar.logger.LogMessage;
 
+import android.util.Log;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -14,6 +16,8 @@ import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+
+import javax.net.ssl.SSLHandshakeException;
 
 public class Server extends Link{
 
@@ -81,7 +85,14 @@ public class Server extends Link{
                     this.serverSocket = new ServerSocketFactory().createSocket((com.reversec.jsolar.api.connectors.Server) this.parameters);
 
                     this.log(LogMessage.INFO, "Waiting for connections...");
-                    Socket socket = this.serverSocket.accept();
+                    Socket socket;
+                    try {
+                        socket = this.serverSocket.accept();
+                    } catch (SSLHandshakeException e) {
+                        Log.e("Server", "TLS handshake failed with client", e);
+                        this.log(LogMessage.ERROR, "TLS handshake failed: " + e.getMessage());
+                        continue;
+                    }
 
                     if (socket != null) {
                         this.parameters.setStatus(com.reversec.jsolar.api.connectors.Server.Status.ONLINE);

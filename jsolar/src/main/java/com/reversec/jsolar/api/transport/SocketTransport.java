@@ -28,10 +28,24 @@ public class SocketTransport extends Transport implements SecureTransport {
             this.socket = socket;
             this.socket.setSoTimeout(SO_TIMEOUT);
 
+            if (socket instanceof SSLSocket) {
+                SSLSocket sslSocket = (SSLSocket) socket;
+                Log.i("SocketTransport", "SSLSocket detected, starting explicit handshake...");
+                Log.i("SocketTransport", "Enabled protocols: " + java.util.Arrays.toString(sslSocket.getEnabledProtocols()));
+                try {
+                    sslSocket.startHandshake();
+                    Log.i("SocketTransport", "TLS handshake completed: " + sslSocket.getSession().getProtocol()
+                            + " / " + sslSocket.getSession().getCipherSuite());
+                } catch (IOException e) {
+                    Log.e("SocketTransport", "TLS handshake FAILED", e);
+                    throw e;
+                }
+            }
+
             this.in = socket.getInputStream();
             this.out = socket.getOutputStream();
         } catch (IOException e) {
-            Log.e("SocketConnection", "IOException when grabbing streams: " + e.getMessage());
+            Log.e("SocketTransport", "IOException when grabbing streams: " + e.getMessage(), e);
         }
     }
 

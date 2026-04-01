@@ -34,9 +34,12 @@ import com.reversec.dz.BuildConfig;
 import com.reversec.dz.R;
 import com.reversec.dz.activities.MainActivity;
 import com.reversec.dz.models.ServerSettings;
+import com.reversec.dz.util.CertificateManager;
 import com.reversec.dz.util.PentestPasswordManager;
 import com.reversec.jsolar.api.connectors.Connector;
 import com.reversec.jsolar.api.links.Server;
+
+import javax.net.ssl.KeyManager;
 
 public class ServerService extends ConnectorService {
 
@@ -183,7 +186,7 @@ public class ServerService extends ConnectorService {
 
 		if(intent != null && intent.getCategories() != null && intent.getCategories().contains("com.reversec.dz.START_EMBEDDED")) {
 			Agent.getInstance().setContext(this.getApplicationContext());
-			PentestPasswordManager.ensurePasswordGenerated(this.getApplicationContext());
+			PentestPasswordManager.ensureSecurityDefaults(this.getApplicationContext());
 			this.startServer();
 		}
 
@@ -230,6 +233,12 @@ public class ServerService extends ConnectorService {
 		String text = "Listening on " + getLocalAddressesString(server_parameters.getPort());
 		if (BuildConfig.IS_PENTEST && server_parameters.hasPassword()) {
 			text += "\nPassword: " + server_parameters.getPassword();
+		}
+		if (server_parameters.isSSL()) {
+			String phrase = CertificateManager.getSecurityPhrase(getApplicationContext());
+			if (phrase != null) {
+				text += "\nTLS: " + phrase;
+			}
 		}
 		return text;
 	}
@@ -318,6 +327,14 @@ public class ServerService extends ConnectorService {
 					.edit().putBoolean("localServerEnabled", true).apply();
 
 			(new ServerSettings()).load(getBaseContext(), this.server_parameters);
+
+			if (this.server_parameters.isSSL()) {
+				CertificateManager.ensureCertificateGenerated(getApplicationContext());
+				KeyManager[] kms = CertificateManager.getKeyManagers(getApplicationContext());
+				if (kms != null) {
+					this.server_parameters.setKeyManagers(kms);
+				}
+			}
 
 			this.server_parameters.enabled = true;
 			this.server = new Server(this.server_parameters, Agent.getInstance().getDeviceInfo());
