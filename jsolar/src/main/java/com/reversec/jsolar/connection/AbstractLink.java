@@ -6,6 +6,7 @@ import com.reversec.jsolar.api.transport.Transport;
 public abstract class AbstractLink extends Thread {
 
     public volatile boolean running = false;
+    protected volatile boolean stopRequested = false;
     protected volatile AbstractConnection connection = null;
     private AbstractSessionCollection sessions;
 
@@ -57,6 +58,7 @@ public abstract class AbstractLink extends Thread {
     }
 
     public void stopConnector() {
+        this.stopRequested = true;
         this.running = false;
 
         this.stopConnection();

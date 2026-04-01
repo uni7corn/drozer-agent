@@ -2,8 +2,8 @@
 <resources>
     
     <!-- drozer -->
-    <string name="app_name">drozer Agent</string>
-    
+    <!-- app_name is supplied per-flavor via resValue in build.gradle -->
+
     <!-- General -->
     <string name="calculating">Calculating. Please wait&#8230;</string>
     <string name="cancel">Cancel</string>
